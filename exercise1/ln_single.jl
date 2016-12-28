@@ -52,9 +52,7 @@ for i = 1:ITERATION
     println(parameter[1])
 end
 
-function estimation(x)
-    parameter[1] * x + parameter[2]
-end
+estimation(x) = parameter[1] * x + parameter[2]
 
 println("Squared Error: $(compute_cost(population, profit, 
                                         parameter[1], parameter[2]))")
