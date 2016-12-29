@@ -1,7 +1,4 @@
-# using Gadfly
-
 # Import data
-size, num_bed, price = Float64[], Float64[], Float64[]
 matrix_1d = Float64[]
 matrix_size = Int64[]
 open("data/ex1data2.txt", "r") do fp
