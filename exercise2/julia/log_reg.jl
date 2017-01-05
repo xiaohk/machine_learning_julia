@@ -14,12 +14,14 @@ df[:admission] = map(df[:admit])do x
     end
 end
 
+
 p1 = plot(df, x = :exam1, y = :exam2, color = :admission,
          Scale.color_discrete_manual(colorant"deep sky blue",
                                      colorant"light pink"))
 
 img = SVG("plot1.svg", 6inch, 4inch)
 draw(img, p1)
+
 
 # Set up training sets
 feature = ModelMatrix(ModelFrame(admit ~ exam1 + exam2, df)).m
@@ -58,6 +60,9 @@ res = optimize(cost, g!, [0.1, 0.1, 0.1])
 mini_Θ = Optim.minimizer(res)
 mini_cost = Optim.minimum(res)
 
+println("The optimal Θ is $(mini_Θ)")
+println("The minimal cost is $(mini_cost)")
+
 # Plot the points with the decision boundary
 decision(x) = (mini_Θ[1] + mini_Θ[2] * x) / -mini_Θ[3]
 l1 = layer(decision, 0, 100, Geom.line)
@@ -68,3 +73,6 @@ p2 = plot(l1, l2, Scale.color_discrete_manual(colorant"deep sky blue",
 img = SVG("plot2.svg", 6inch, 4inch)
 draw(img, p2)
 
+
+# Function to predict the probability of admission
+prob(exam1, exam2) = h(mini_Θ, [1 exam1 exam2])
