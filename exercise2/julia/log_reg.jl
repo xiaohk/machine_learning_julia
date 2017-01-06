@@ -27,11 +27,11 @@ draw(img, p1)
 feature = ModelMatrix(ModelFrame(admit ~ exam1 + exam2, df)).m
 value = convert(Array, df[:admit])
 
-# Define the logistic function, which supports both one-example-vector, or 
-# an example matrix. x would be row vector here, and this function assumes the
-# first entry of the row is 1. If x is an example matrix, then each row is one 
-# example, and this function returns a n*1 matrix. If x is one-example-vector,
-# this function would return a Float.
+# Define the logistic function, which supports both one-example-vector, or a
+# training-set-matrix. x would be row vector here, and this function assumes 
+# the first entry of the row is 1. If x is a training-set-matrix, then each 
+# row is one example, and this function returns a n*1 matrix. If x is 
+# one-example-vector, this function would return a Float rather than an array.
 function h(Θ, x)
     if size(x, 1) == 1
         return 1 / (1 + e ^ -(x * Θ)[1])
@@ -40,8 +40,7 @@ function h(Θ, x)
     end
 end
 
-# Define the cost function. Parameter x should be a matrix, where each row 
-# represents a training example. Parameter Y should be a column vector, 
+# Define the cost function.
 function cost(Θ)
     hypo = h(Θ, feature)
     ((-value' * log(hypo) - (1 - value)' * log(1 - hypo)) / size(hypo, 1))[1]
