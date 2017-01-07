@@ -2,7 +2,7 @@ using Gadfly
 using DataFrames
 using Optim
 
-const λ = 1
+λ = 1
 
 # Import data
 df = readtable("../data/ex2data2.txt", separator = ',', header = false,
@@ -65,43 +65,73 @@ end
 
 # Define the cost function. Regularization is used here. 
 function cost(Θ)
+    m = size(feature, 1)
     hypo = h(Θ, feature)
-    m = size(hypo, 1)
     pre = ((-value' * log(hypo) - (1 - value)' * log(1 - hypo)) / m)[1]
     # We do not regularize the first θ
-    return pre + λ / (2 * m) + sum(map(θ -> θ^2, Θ[2:end]))
-end
+    return pre + ((λ / (2 * m)) * sum(Θ[2:end] .^ 2))
+end    
 
 # Define the gradient function for cost function. Regularization is used.
 function g!(Θ, storage)
     m =  size(feature, 1)
+    hypo = h(Θ, feature)
     result = (feature' * (h(Θ, feature) - value)) / m
-    storage[1] = result[1]
-    result_reg = result + (λ / m) * Θ
-    for i in 2:length(result_reg)
-        storage[i] = result_reg[i]
-    end
+    # No regularization for Θ[1]
+    storage[:] = result + (λ / m) * [0; Θ[2:end]]
 end
 
+
 # Find parameters Θ minimizing the cost function
-res = optimize(cost, g!, repeat([0.1], inner = size(feature, 2)))
+res = optimize(cost, g!, repeat([0.5], inner = size(feature, 2)))
 mini_Θ = Optim.minimizer(res)
 mini_cost = Optim.minimum(res)
 
-println("The optimal Θ is $(mini_Θ)")
+println("The optimal Θ is $(mini_Θ)\n")
 println("The minimal cost is $(mini_cost)")
 
 # Function to predict the probability of being accepted
 prob(test1, test2) = h(mini_Θ, get_new_row(test1, test2))
 
-function get_func_expression(Θ)
-    out = "$(Θ[1])"
-    r = 2
-    for i in 1:6
-        for j in 0:i
-            out = string(out, " + ", "($(Θ[r])) * x1^$(i-j) * x2^$j")
-            r += 1
-        end
-    end
-    return out
+# Plot the decision boundary
+function decision(x1::Float64, x2::Float64, a::Array{Float64})
+    dot(a, [1, x1^1*x2^0, x1^0*x2^1, x1^2*x2^0, x1^1*x2^1, x1^0*x2^2, 
+            x1^3*x2^0, x1^2*x2^1, x1^1*x2^2, x1^0*x2^3, x1^4*x2^0, x1^3*x2^1,
+            x1^2*x2^2, x1^1*x2^3, x1^0*x2^4, x1^5*x2^0, x1^4*x2^1, x1^3*x2^2,
+            x1^2*x2^3, x1^1*x2^4, x1^0*x2^5, x1^6*x2^0, x1^5*x2^1, x1^4*x2^2, 
+            x1^3*x2^3, x1^2*x2^4, x1^1*x2^5, x1^0*x2^6])
 end
+
+l1 = layer(df, x = :test1, y = :test2, color = :result, Geom.point)
+l2 = layer(z = (x1,x2) -> decision(x1, x2, mini_Θ), 
+           x = linspace(-1.0, 1.5, 100),
+           y = linspace(-1.0, 1.5, 100),
+           Geom.contour(levels = [0.0]),
+           Theme(line_width = 1pt))
+
+coord = Coord.cartesian(xmin=-1.0, xmax=1.5, ymin=-1.0, ymax=1.5)
+
+p4 = plot(l1, l2, coord, Scale.color_discrete_manual(colorant"deep sky blue",
+                                                     colorant"light pink"))
+
+img = SVG("plot4.svg", 6inch, 4inch)
+draw(img, p4)
+
+# Plot multiple graphs using different λ
+function cost_and_gradient(Θ, λ)
+    m = size(feature, 1)
+    hypo = h(Θ, feature)
+    return (Θ::Array) -> begin
+        pre = ((-value' * log(hypo) - (1 - value)' * log(1 - hypo)) / m)[1]
+        return pre + ((λ / (2 * m)) * sum(Θ[2:end] .^ 2))
+    end, (Θ::Array, storage::Array) -> begin
+        result = (feature' * (hypo - value)) / m
+        storage[:] = result + (λ / m) * [0; Θ[2:end]]
+    end
+end
+
+cost2, g2! = cost_and_gradient(zeros(28), 0.5)
+
+
+
+
