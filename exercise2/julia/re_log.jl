@@ -76,7 +76,7 @@ end
 function g!(Θ, storage)
     m =  size(feature, 1)
     hypo = h(Θ, feature)
-    result = (feature' * (h(Θ, feature) - value)) / m
+    result = (feature' * (hypo - value)) / m
     # No regularization for Θ[1]
     storage[:] = result + (λ / m) * [0; Θ[2:end]]
 end
@@ -120,17 +120,43 @@ draw(img, p4)
 # Plot multiple graphs using different λ
 function cost_and_gradient(Θ, λ)
     m = size(feature, 1)
-    hypo = h(Θ, feature)
     return (Θ::Array) -> begin
+        hypo = h(Θ, feature)
         pre = ((-value' * log(hypo) - (1 - value)' * log(1 - hypo)) / m)[1]
         return pre + ((λ / (2 * m)) * sum(Θ[2:end] .^ 2))
     end, (Θ::Array, storage::Array) -> begin
+        hypo = h(Θ, feature)
         result = (feature' * (hypo - value)) / m
         storage[:] = result + (λ / m) * [0; Θ[2:end]]
     end
 end
 
-cost2, g2! = cost_and_gradient(zeros(28), 0.5)
+# Iterate within different λ
+function multiple_λ(λ_candidates)
+    for my_λ in λ_candidates
+        cost1, g1! = cost_and_gradient(zeros(28, 1), my_λ)
+
+        # Find the parameters
+        res = optimize(cost1, g1!, repeat([0.5], inner = size(feature, 2)))
+        mini_Θ = Optim.minimizer(res)
+        
+        # Plot the decision boundaries
+        l2 = layer(z = (x1,x2) -> decision(x1, x2, mini_Θ), 
+                   x = linspace(-1.0, 1.5, 1000),
+                   y = linspace(-1.0, 1.5, 1000),
+                   Geom.contour(levels = [0.0]),
+                   Theme(line_width = 1pt))
+
+        p5 = plot(l1, l2, coord, 
+                  Scale.color_discrete_manual(colorant"deep sky blue",
+                                              colorant"light pink"),
+                  Guide.title("Regularization with λ = $(my_λ)"))
+
+        img = SVG("plot_λ=$(my_λ).svg", 6inch, 4inch)
+        draw(img, p5)
+    end
+end
+multiple_λ([0, 1, 5, 10, 100])
 
 
 
