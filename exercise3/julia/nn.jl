@@ -38,9 +38,9 @@ end
 # Test using result-known examples, return the correct rate. It also supports
 # returning the example which classifier fails to classify with the wrong 
 # class prediction.
-function predict_test(feature::Array{Float64, 2}, value::Array{Float64, 1})
+function predict_test(feature::Array{Float64, 2}, value::Array{Float64, 2})
     correct_num = 0
-    failed = Dict{Int64, Int64}
+    failed = Dict{Int64, Int64}()
     for t in 1:size(feature, 1)
         pred =  predict(feature[t, :])
         if  pred == value[t]
