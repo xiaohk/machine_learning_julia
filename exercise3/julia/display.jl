@@ -39,7 +39,8 @@ function min_perimeter(total::Int64)
     return min_a, min_b
 end
 
-
+# Display the images. `rows` is an array consisting the row number of the 
+# images to display. The default is to randomly display 100 images.
 function display_image(rows::Array = [])
     # Set up width and other variables
     if rows == []
