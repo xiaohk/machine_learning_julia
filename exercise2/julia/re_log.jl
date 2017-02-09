@@ -93,6 +93,9 @@ println("The minimal cost is $(mini_cost)")
 # Function to predict the probability of being accepted
 prob(test1, test2) = h(mini_Θ, get_new_row(test1, test2))
 
+println(mini_Θ)
+quit()
+
 # Plot the decision boundary
 function decision(x1::Float64, x2::Float64, a::Array{Float64})
     dot(a, [1, x1^1*x2^0, x1^0*x2^1, x1^2*x2^0, x1^1*x2^1, x1^0*x2^2, 
