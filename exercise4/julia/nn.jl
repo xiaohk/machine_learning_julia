@@ -1,6 +1,6 @@
 include("display.jl")
 # We already have variable images and numbers from that module
-using Optim
+using NLopt
 
 # Import weights data
 data = matread("../data/ex4weights.mat")
@@ -8,6 +8,7 @@ pre_Θ1, pre_Θ2 = data["Theta1"], data["Theta2"]
 λ = 1
 ϵ = 0.12
 HU_NUM = 25
+DEBUG = -1 
 
 # Add value 1 column in the images matrix imported in `display.jl`
 feature = hcat([1 for i in 1:size(images, 1)], images)
@@ -66,11 +67,28 @@ function predict(Θ1, Θ2, x)
     convert(Float64, find(p -> p == maximum(h(Θ1, Θ2, x)), h(Θ1, Θ2, x))[1])
 end
 
+# Test using result-known examples, return the correct rate. It also supports
+# returning the example which classifier fails to classify with the wrong 
+# class prediction.
+function predict_test(feature, value, Θ1, Θ2)
+    correct_num = 0
+    failed = Dict{Int64, Int64}()
+    for t in 1:size(feature, 1)
+        pred =  predict(Θ1, Θ2, feature[t, :])
+        if  pred == value[t]
+            correct_num += 1
+        else
+            failed[t] = pred
+        end
+    end
+    return correct_num / size(feature, 1), failed
+end
+
 # Cost function for this NN model
-function cost(Θ1, Θ2)
+function cost(Θ1, Θ2, debug_num::Int64 = -1)
     # Computing the first term of the cost function
     first_term = 0.0
-    m = size(feature, 1)
+    m = debug_num == -1 ? size(feature, 1) : debug_num
     for i in 1:m
         p = h(Θ1, Θ2, feature[i,:])
         first_term = first_term + (-1) * output[:,i]' * 
@@ -123,13 +141,13 @@ end
     hidden units, then use backward propagation to update the weights based on
     the known error for each weights.
 =#
-function backward(Θ1, Θ2)
+function backward(Θ1, Θ2, debug_num::Int64 = -1)
     # Initialize the accumulator
     Δ1 = zeros(size(Θ1))
     Δ2 = zeros(size(Θ2))
     
     # Iterate through the feature space
-    m = size(feature, 1)
+    m = debug_num == -1 ? size(feature, 1) : debug_num
     for (i in 1:m)
         # Step 1: Forward computing
         a1 = feature[i, :]
@@ -172,7 +190,7 @@ function g!(x::Vector, storage::Vector)
                            size(output, 1), HU_NUM + 1)
 
     # Get the gradient for those parameters
-    (D1, D2) = backward(Θ1, Θ2)
+    (D1, D2) = backward(Θ1, Θ2, DEBUG)
 
     # Rolling the gradients and add to storage
     storage[:] = rolling(D1, D2)
@@ -185,26 +203,54 @@ function cost_optim(x::Vector)
                            size(output, 1), HU_NUM + 1)
 
     # Call the cost function
-    return cost(Θ1, Θ2)
+    return cost(Θ1, Θ2, DEBUG)
 end
 
 # Check gradient using the slope method
-function check_gradient(para::Array{Float64,1})
+function check_gradient(para::Array{Float64,1}, untill::Int64 = -1)
     ϵ = 1e-4
     temp = zeros(size(para)...)
     esti = zeros(size(para)...)
-    
+    m = untill == -1 ? size(para, 1) : untill
     # Iterate through the weights
-    for i in size(para, 1)
+    for i in 1:m
+        println("$(i) in $(m)")
         temp[i] = ϵ
-        diff = (cost())
+        esti[i] = (cost_optim(para + temp) - cost_optim(para - temp)) / (2 * ϵ)
+        temp[i] = 0
+    end
+    
+    # Check the difference
+    current = Array{Float64, 1}(length(para))
+    g!(para, current)
+    diff = current[1:m] - esti[1:100]
 
+    println("The biggest difference among $(m) checkings is $(maximum(diff))")
+end
 
+# Optim is so slow, let's try NLopt
+function costFunction!(x, storage)
+    cost = cost_optim(x)
 
-res = optimize(cost_optim, g!, rolling(init_weights()...), 
-               Optim.Options(iterations = 2))
-mini_Θ = Optim.minimizer(res)
+    # Store the gradient
+    if length(storage) > 0
+        g!(x, storage)
+    end
+    return cost
+end
 
+# Set up NLopt options
+initial = rolling(init_weights()...)
+opt = Opt(:LD_TNEWTON, length(initial))
+maxeval!(opt, 100)
 
+# Minimizing!
+min_objective!(opt, costFunction!)
+(minf,minx,ret) = NLopt.optimize(opt, initial)
 
+# Unrolling the learned parameters
+mini_Θ1, mini_Θ2 = unrolling(minx, HU_NUM, size(feature, 2), 
+                                 size(output, 1), HU_NUM + 1)
 
+# Get the accuracy and failed samples
+correct, failed = predict_test(feature, numbers, mini_Θ1, mini_Θ2)
